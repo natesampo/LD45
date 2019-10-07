@@ -27,7 +27,7 @@ var oxygenDamage = 0.0007;
 var oxygenDamageThreshold = 0.15;
 var openOutsideDoorSuspicion = 0.04;
 var enemySuffocationThreshold = 0.25;
-var oxygenDamageSuspicion = 0.0002;
+var oxygenDamageSuspicion = 0.00025;
 var deathSuspicion = 0.15;
 var frames = 4;
 var fireDamage = 0.0015;
@@ -59,7 +59,7 @@ var enemyDecayRate = 0.004;
 var screenTextTime = 0;
 var warning = 0;
 var audioVolume = 0;
-var audioFadeInRate = 0.007;
+var audioFadeInRate = 0.0007;
 var screenText = [];
 var events = [
 	function() {asteroid.push(new Asteroid()); screenTextTime = 300; screenText = ['CREW: Asteroid Incoming! Use the vacuum of space to put out any fires!'];},
@@ -761,6 +761,10 @@ function render() {
 				warning = 2;
 				screenTextTime = 300;
 				screenText = ['CREW: This door AI might seriously be trying to kill us!'];
+			} else if(warning == 2 && suspicion >= 1) {
+				warning = 3;
+				screenTextTime = 300;
+				screenText = ['CREW: Enough is enough, I\'m shutting this door AI off!'];
 			}
 		}
 
@@ -872,7 +876,7 @@ setInterval(function() {
 setInterval(function() {
 	if(shutdownTimer > 0) {
 		if(audioVolume < 1 && !shutdownActivated) {
-			audioVolume = Math.min(1, audioVolume+audioFadeInRate);
+			audioVolume = Math.min(0.5, audioVolume+audioFadeInRate);
 			bgAudio.volume = audioVolume;
 		}
 
