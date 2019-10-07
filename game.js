@@ -194,7 +194,7 @@ var asteroidImg = new Image();
 asteroidImg.src = 'Asteroid.png';
 
 var asteroidHit = new Audio('asteroidhit.wav');
-asteroidHit.volume = 0.01;
+asteroidHit.volume = 0.1;
 
 var bgAudio = new Audio('background.mp3');
 bgAudio.loop = true;
@@ -307,7 +307,7 @@ class Asteroid {
 			var newFire = [this.n, this.m, 0];
 			fires.push(newFire);
 			shipHealth -= asteroidDamage;
-			screenshake = asteroidDamage*2;
+			screenshake = asteroidDamage*1.3;
 
 			asteroidHit.play();
 			
