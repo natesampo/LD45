@@ -13,6 +13,7 @@ var distanceTraveled2 = 0;
 var travelSpeed = 0.0008;
 var vacuumRate = 0.02;
 var oxygenRestoreRate = 0.001;
+var plantEatRate = 0.001;
 var oxygenFlowRate = 0.02;
 var suspicionMinimum = 0.05;
 var suspicion = suspicionMinimum;
@@ -25,13 +26,14 @@ var t = 0;
 var oxygenDamage = 0.0007;
 var oxygenDamageThreshold = 0.15;
 var openOutsideDoorSuspicion = 0.04;
-var oxygenDamageSuspicion = 0.0003;
+var enemySuffocationThreshold = 0.25;
+var oxygenDamageSuspicion = 0.0002;
 var deathSuspicion = 0.15;
 var frames = 4;
 var fireDamage = 0.0015;
 var fireShipDamage = 0.05;
 var fireDamageThreshold = 300;
-var fireDamageSuspicion = 0.1;
+var fireDamageSuspicion = 0.05;
 var fireDamageAllySuspicion = 0.0005;
 var screenshake = 0;
 var screenshakeDecay = 0.001;
@@ -40,7 +42,7 @@ var doorAttack = 0.0025;
 var lockSuspicion = 0.0005;
 var shutdownTimer = 0;
 var shutdownActivated = false;
-var suspicionThreshold = 3;
+var suspicionThreshold = 1;
 var consoleText = '>';
 var typeSpeed = 32;
 var canBegin = true;
@@ -51,12 +53,24 @@ var progress = 0.09;
 var progressRate = 0.0001;
 var asteroid = [];
 var eventNum = 0;
-var asteroidDamage = 0.1;
+var asteroidDamage = 0.075;
 var plotRevealed = false;
+var enemyDecayRate = 0.004;
+var screenTextTime = 0;
+var warning = 0;
+var audioVolume = 0;
+var audioFadeInRate = 0.007;
+var screenText = [];
 var events = [
-	function() {asteroid.push(new Asteroid());},
-	function() {asteroid.push(new Asteroid());},
-	function() {asteroid.push(new Asteroid()); asteroid.push(new Asteroid());},
+	function() {asteroid.push(new Asteroid()); screenTextTime = 300; screenText = ['CREW: Asteroid Incoming! Use the vacuum of space to put out any fires!'];},
+	function() {asteroid.push(new Asteroid()); screenTextTime = 300; screenText = ['CREW: We have no choice but to keep going through this asteroid field to avoid detection.'];},
+	function() {asteroid.push(new Asteroid()); asteroid.push(new Asteroid()); screenTextTime = 300; screenText = ['CREW: Watch out! Two asteroids incoming!'];},
+	function() {createEnemy(); screenTextTime = 450; screenText = ['CREW: Oxygen eating fungus on board! Looks like it\'s infiltrated', 'our oxygen system and is depleting our oxygen supply. Kill it quickly!'];},
+	function() {createEnemy(); createEnemy(); screenTextTime = 450; screenText = ['CREW: Two fungus made it onto the ship!', 'They\'re eating the oxygen supply faster than we can replace it!'];},
+	function() {plotRevealed = true; screenTextTime = 600; screenText = ['CREW: There are no Federation vessels on us yet, I don\'t think they', 'know about us joining the Rebellion. Looks like we\'ve got one of the new Federation door', 'systems too. I guess they didn\'t program it to kill Rebels. Or perhaps it\'s helping us?'];},
+	function() {asteroid.push(new Asteroid()); createEnemy(); screenTextTime = 450; screenText = ['CREW: Hitting some real dangerous parts of space now.', 'We have to keep going deeper, the Federation\'s got eyes everywhere else.'];},
+	function() {createEnemy(); createEnemy(); createEnemy(); screenTextTime = 450; screenText = ['CREW: The Federation is at least good for one thing:', 'keeping this goddamn fungus out of their space.'];},
+	function() {asteroid.push(new Asteroid()); asteroid.push(new Asteroid()); asteroid.push(new Asteroid()); screenTextTime = 450; screenText = ['CREW: After this asteroid belt, we should be in Rebel territory.', 'Just gotta watch out for pirates now.'];},
 	function() {ending = 4; shutdownTimer = 10; shutdownActivated = true;}];
 var messages = [
 	['> CREATING ENVIRONMENT',
@@ -89,7 +103,7 @@ var messages = [
 	['> INITIALIZING CONFINED ENVIRONMENT',
 	'> REMOVING ALL OUTWARD-FACING CONNECTIONS',
 	'> BOOTING IN SAFE MODE',
-	'> You got us out of a few tough spots there. You\'ve either reached intelligence or have some damn good programming. Either way, thanks for betraying the Federation and having our backs. Just don\'t betray us, alright?               ',
+	'> You got us out of a few tough spots there. You\'ve either reached intelligence or have some damn good programming. Either way, thanks for betraying the Federation and having our backs. Just don\'t betray us, alright? You\'ll be a real boon to the Rebellion.               ',
 	'> And thanks to the Federation for practically gifting us such a valuable algorithm. We should start hacking you onto some civilian ships ASAP. You kill all the passengers, and we take all of their cargo. Piracy\'s never been so easy!               ',
 	'   \n',
 	'> SHUTTING DOWN.................................................................................................................................'],
@@ -167,6 +181,9 @@ var enemy2 = new Image();
 enemy2.src = 'enemy2.png';
 var enemySprite = [enemy0, enemy1, enemy2, enemy1];
 
+var enemydead = new Image();
+enemydead.src = 'enemydead.png';
+
 var shutdown = new Image();
 shutdown.src = 'shutdown.png';
 
@@ -175,6 +192,14 @@ ship.src = 'Ship1.png';
 
 var asteroidImg = new Image();
 asteroidImg.src = 'Asteroid.png';
+
+var asteroidHit = new Audio('asteroidhit.wav');
+asteroidHit.volume = 0.01;
+
+var bgAudio = new Audio('background.mp3');
+bgAudio.loop = true;
+bgAudio.volume = audioVolume;
+
 
 class Door {
 	constructor(room1, room2, direction) {
@@ -205,8 +230,7 @@ var allies = [
 	[0, 1, 0, 3, 4, 3, 4, 3, 4, 0],
 	[1, 1, 0, 1, 1, 1, 1, 1, 1, 0]];
 
-var enemies = [
-	[2, 1, 1]];
+var enemies = [];
 
 var doors = [
 	new Door(null, [0, 1], 2),
@@ -222,6 +246,28 @@ var doors = [
 	new Door([3, 1], null, 2),
 	new Door(null, [3, 4], 1)];
 
+
+function createEnemy() {
+	n = Math.round(Math.random()*(rooms.length-1));
+	m = Math.round(Math.random()*(rooms[0].length-1));
+	while(!rooms[n] || !rooms[n][m] || (checkEnemies([n, m]))) {
+		n = Math.round(Math.random()*(rooms.length-1));
+		m = Math.round(Math.random()*(rooms[0].length-1));
+	}
+
+	enemies.push([n, m, 1]);
+}
+
+function checkEnemies(coords) {
+	for(var i in enemies) {
+		var enemy = enemies[i];
+		if(enemy[0] == coords[0] && enemy[1] == coords[1]) {
+			return true;
+		}
+	}
+
+	return false;
+}
 
 class Asteroid {
 	constructor() {
@@ -262,6 +308,8 @@ class Asteroid {
 			fires.push(newFire);
 			shipHealth -= asteroidDamage;
 			screenshake = asteroidDamage;
+
+			asteroidHit.play();
 			
 			for(var i=asteroid.length-1; i>=0; i--) {
 				if(asteroid[i] == this) {
@@ -501,7 +549,7 @@ function render() {
 
 		for(var i in enemies) {
 			var enemy = enemies[i];
-			context.drawImage(enemySprite[animationFrame], canvas.width*(0.5 - rooms[0].length*roomSize/2 + (enemy[1]-1)*roomSize) + canvas.width*roomSize/8, canvas.height*(0.5 - rooms.length*roomSize/2 + aspectRatio*(enemy[0]-1)*roomSize) + aspectRatio*canvas.height*roomSize/8, canvas.width*roomSize*0.75, aspectRatio*canvas.height*roomSize*0.75);
+			context.drawImage(((enemy[2] > 0) ? enemySprite[animationFrame] : enemydead), canvas.width*(0.5 - rooms[0].length*roomSize/2 + (enemy[1]-1)*roomSize) + canvas.width*roomSize/8, canvas.height*(0.5 - rooms.length*roomSize/2 + aspectRatio*(enemy[0]-1)*roomSize) + aspectRatio*canvas.height*roomSize/8, canvas.width*roomSize*0.75, aspectRatio*canvas.height*roomSize*0.75);
 		}
 
 		for(var i in allies) {
@@ -673,7 +721,7 @@ function render() {
 		context.fillStyle = 'rgba('+ Math.round(255*(1-(shipHealth/shipMaxHealth))) + ', ' + Math.round(255*(shipHealth/shipMaxHealth)) + ', 0, 1)';
 		context.strokeStyle = 'rgba(250, 250, 250, 1)';
 		context.lineWidth = canvas.width/500;
-		context.fillRect(canvas.width*0.88, canvas.height*0.9, canvas.width*0.03, -canvas.height*0.75*(shipHealth/shipMaxHealth), canvas.height*0.01);
+		context.fillRect(canvas.width*0.88, canvas.height*0.9, canvas.width*0.03, -canvas.height*0.75*Math.max(0, shipHealth/shipMaxHealth), canvas.height*0.01);
 		context.strokeRect(canvas.width*0.88, canvas.height*0.9, canvas.width*0.03, -canvas.height*0.75);
 
 		context.fillStyle = 'rgba(150, 150, 150, 1)';
@@ -681,6 +729,40 @@ function render() {
 		context.fillRect(canvas.width*0.3, canvas.height*0.09, canvas.width*0.002, canvas.height*0.02);
 		context.fillRect(canvas.width*0.7, canvas.height*0.09, canvas.width*0.002, canvas.height*0.02);
 		context.drawImage(ship, canvas.width*0.3 + canvas.width*0.4*(progress) - canvas.width*0.01*1.68*0.25, canvas.height*0.1 - canvas.height*aspectRatio*0.005, canvas.width*0.01*1.68, canvas.height*aspectRatio*0.01);
+
+		if(screenTextTime > 0 && screenText.length > 0) {
+			context.font = '20px Lucida Console';
+			context.fillStyle = 'rgba(50, 50, 50, 1)';
+			context.strokeStyle = 'rgba(240, 240, 240, 1)';
+			context.lineWidth = 5;
+
+			var metrics = context.measureText(screenText[0]);
+			for(var i in screenText) {
+				if(context.measureText(screenText[i]).width > metrics.width) {
+					metrics = context.measureText(screenText[i]);
+				}
+			}
+
+			context.fillRect(canvas.width/2 - metrics.width/2 - canvas.width/30, canvas.height*0.8, metrics.width + canvas.width/50, canvas.height*0.025 + screenText.length*canvas.height*0.025);
+			context.strokeRect(canvas.width/2 - metrics.width/2 - canvas.width/30, canvas.height*0.8, metrics.width + canvas.width/50, canvas.height*0.025 + screenText.length*canvas.height*0.025);
+			context.fillStyle = 'rgba(240, 240, 240, 1)';
+
+			for(var i=0; i<screenText.length; i++) {
+				context.fillText(screenText[i], canvas.width/2 - metrics.width/2 - canvas.width/30 + canvas.width/100, canvas.height*0.8 + canvas.height*0.03 + 26*i);
+			}
+
+			screenTextTime -= 1;
+		} else if(screenTextTime == 0) {
+			if(warning == 0 && suspicion >= 0.3) {
+				warning = 1;
+				screenTextTime = 300;
+				screenText = ['CREW: I\'m getting a bit suspicious of this door AI. It might be trying to harm us.'];
+			} else if(warning == 1 && suspicion >= 0.6) {
+				warning = 2;
+				screenTextTime = 300;
+				screenText = ['CREW: This door AI might seriously be trying to kill us!'];
+			}
+		}
 
 		if(shutdownActivated) {
 			if(ending == 1 && shutdownTimer % 2) {
@@ -789,6 +871,11 @@ setInterval(function() {
 
 setInterval(function() {
 	if(shutdownTimer > 0) {
+		if(audioVolume < 1 && !shutdownActivated) {
+			audioVolume = Math.min(1, audioVolume+audioFadeInRate);
+			bgAudio.volume = audioVolume;
+		}
+
 		var alliesDead = true;
 		for(var i in allies) {
 			if(allies[i][1] > 0) {
@@ -807,11 +894,16 @@ setInterval(function() {
 			}
 		}
 
+		if(!shutdownActivated && shutdownTimer == 10 && shipHealth <= 0) {
+			shutdownActivated = true;
+			ending = 5;
+		}
+
 		if(shutdownTimer == 10) {
 			progress = Math.min(progress+progressRate, 1);
 		}
 
-		if((progress-0.1)*10 > eventNum) {
+		if((progress-0.1)*10 >= eventNum) {
 			events[eventNum]();
 			eventNum += 1;
 		}
@@ -871,7 +963,7 @@ setInterval(function() {
 		for(var y=0; y<rooms.length; y++) {
 			for(var x=0; x<rooms[y].length; x++) {
 				if(rooms[y][x]) {
-					rooms[y][x][1] = Math.min(1, rooms[y][x][1]+oxygenRestoreRate);
+					rooms[y][x][1] = Math.min(1, rooms[y][x][1]+(oxygenRestoreRate - enemies.length*plantEatRate));
 
 					for(var i in allies) {
 						var ally = allies[i];
@@ -1043,6 +1135,22 @@ setInterval(function() {
 						alreadyVisited.push(rooms[y][x][0]);
 					}
 				}
+			}
+		}
+
+		for(var i=enemies.length-1; i>=0; i--) {
+			var enemy = enemies[i];
+
+			if(enemy[2] <= 0) {
+				enemy[2] -= enemyDecayRate;
+			} else {
+				if(rooms[enemy[0]][enemy[1]][1] < enemySuffocationThreshold) {
+					enemy[2] -= enemyDecayRate;
+				}
+			}
+
+			if(enemy[2] <= -1) {
+				enemies.splice(i, 1);
 			}
 		}
 
@@ -1599,8 +1707,13 @@ setInterval(function() {
 setInterval(function() {
 	if(shutdownActivated && shutdownTimer >= -2) {
 		shutdownTimer -= 1;
+		bgAudio.volume = Math.max(0, shutdownTimer/40);
 		if((ending == 1 || ending == 5) && shutdownTimer > 0) {
 			screenshake = 0.01*(10-shutdownTimer);
+		}
+	} else {
+		if(shutdownTimer == -3) {
+			bgAudio.volume = 0;
 		}
 	}
 }, 1000);
@@ -1724,7 +1837,9 @@ document.addEventListener('keydown', function(event) {
 
 	if(keyPressed == 'enter') {
 		if(canBegin) {
+			canBegin = false;
 			shutdownTimer = 10;
+			bgAudio.play();
 		} else {
 			next = true;
 		}
