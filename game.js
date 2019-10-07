@@ -56,11 +56,11 @@ var eventNum = 0;
 var asteroidDamage = 0.075;
 var plotRevealed = false;
 var enemyDecayRate = 0.004;
-var screenTextTime = 0;
+var screenTextTime = 450;
 var warning = 0;
 var audioVolume = 0;
 var audioFadeInRate = 0.0007;
-var screenText = [];
+var screenText = ['CREW: I heard they put a new door AI in this ship. I hope it\'ll help us on our journey.', 'We\'ll certainly need all the help we can get.'];
 var events = [
 	function() {asteroid.push(new Asteroid()); screenTextTime = 300; screenText = ['CREW: Asteroid Incoming! Use the vacuum of space to put out any fires!'];},
 	function() {asteroid.push(new Asteroid()); screenTextTime = 300; screenText = ['CREW: We have no choice but to keep going through this asteroid field to avoid detection.'];},
