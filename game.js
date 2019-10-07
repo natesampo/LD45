@@ -307,7 +307,7 @@ class Asteroid {
 			var newFire = [this.n, this.m, 0];
 			fires.push(newFire);
 			shipHealth -= asteroidDamage;
-			screenshake = asteroidDamage;
+			screenshake = asteroidDamage*2;
 
 			asteroidHit.play();
 			
@@ -1713,7 +1713,7 @@ setInterval(function() {
 		shutdownTimer -= 1;
 		bgAudio.volume = Math.max(0, shutdownTimer/40);
 		if((ending == 1 || ending == 5) && shutdownTimer > 0) {
-			screenshake = 0.01*(10-shutdownTimer);
+			screenshake = 0.014*(10-shutdownTimer);
 		}
 	} else {
 		if(shutdownTimer == -3) {
