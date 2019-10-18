@@ -50,7 +50,7 @@ var next = false;
 var message = -1;
 var ending = 0;
 var progress = 0;
-var progressRate = 0.0001;
+var progressRate = 0.000105;
 var asteroid = [];
 var eventNum = 0;
 var asteroidDamage = 0.075;
@@ -816,11 +816,7 @@ setInterval(function() {
 				message += 1;
 				consoleText = consoleText + '\nKeyboard Interrupt\n\n';
 
-				if(message == 3 || message == 4 || message == 5) {
-					wait = 50;
-				} else {
-					wait = 22;
-				}
+				wait = 10;
 
 				if(message == messages[ending].length) {
 					canBegin = true;
